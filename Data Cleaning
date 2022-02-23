@@ -1,0 +1,194 @@
+/*
+
+Ceaning Data in SQL Queries
+
+*/ 
+
+
+select *
+from sql_portfolio.dbo.NashvilleHousing
+
+
+-- Standardize Date Format
+
+select Saledateconverted, CONVERT (date, saledate)
+from sql_portfolio.dbo.nashvillehousing
+
+update Nashvillehousing
+set saledate = convert(date,saledate)
+
+ALTER TABLE nashvillehousing
+add SaleDateConverted Date;
+
+update Nashvillehousing
+set SaleDateConverted = convert(date,saledate)
+
+--Populate Property Address Data
+
+
+select propertyaddress
+from sql_portfolio.dbo.NashvilleHousing
+where propertyaddress is null
+
+select *
+from sql_portfolio.dbo.NashvilleHousing
+where propertyaddress is null
+
+
+select *
+from sql_portfolio.dbo.NashvilleHousing
+--where propertyaddress is null
+order by parcelid
+
+select a.parcelID, a.propertyaddress, b.parcelID, b.propertyaddress
+from sql_portfolio.dbo.NashvilleHousing a
+join sql_portfolio.dbo.NashvilleHousing b
+	on a.parcelID = b.parcelID
+	and a.[uniqueID] <> b.[uniqueID]
+where a.propertyaddress is null 
+
+
+select a.parcelID, a.propertyaddress, b.parcelID, b.propertyaddress, isnull(a.propertyaddress, b.propertyaddress)
+from sql_portfolio.dbo.NashvilleHousing a
+join sql_portfolio.dbo.NashvilleHousing b
+	on a.parcelID = b.parcelID
+	and a.[uniqueID] <> b.[uniqueID]
+where a.propertyaddress is null 
+
+update a
+set propertyaddress = isnull(a.propertyaddress, b.propertyaddress)
+from sql_portfolio.dbo.NashvilleHousing a
+join sql_portfolio.dbo.NashvilleHousing b
+	on a.parcelID = b.parcelID
+	and a.[uniqueID] <> b.[uniqueID]
+
+
+--Breaking out Address into Individual columns (address, city, state)
+
+select propertyaddress 
+from sql_portfolio.dbo.nashvillehousing 
+
+select
+SUBSTRING(propertyaddress, 1, CHARINDEX(',',propertyaddress)-1) 
+, SUBSTRING(propertyaddress, CHARINDEX(',', propertyaddress) + 1, LEN(propertyaddress)) 
+from sql_portfolio.dbo.nashvillehousing 
+
+ALTER TABLE nashvillehousing
+add propertysplitaddress nvarchar(255);
+
+update nashvillehousing
+set propertysplitaddress = SUBSTRING(propertyaddress, 1, CHARINDEX(',',propertyaddress)-1)
+
+ALTER TABLE nashvillehousing
+add propertysplitcity nvarchar(255);
+
+update nashvillehousing
+set propertysplitcity = SUBSTRING(propertyaddress, CHARINDEX(',', propertyaddress) + 1, LEN(propertyaddress))
+
+select *
+
+from sql_portfolio.dbo.nashvillehousing
+
+
+select owneraddress
+from sql_portfolio.dbo.nashvillehousing
+
+select
+parsename(replace(owneraddress, ',','.') ,3),
+parsename(replace(owneraddress, ',','.') ,2),
+parsename(replace(owneraddress, ',','.') ,1)
+from sql_portfolio.dbo.nashvillehousing
+
+
+ALTER TABLE nashvillehousing
+add ownersplitaddress nvarchar(255);
+
+update nashvillehousing
+set ownersplitaddress = parsename(replace(owneraddress, ',','.') ,3)
+
+ALTER TABLE nashvillehousing
+add Ownersplitcity nvarchar(255);
+
+update nashvillehousing
+set Ownersplitcity = parsename(replace(owneraddress, ',','.') ,2)
+
+ALTER TABLE nashvillehousing
+add ownersplitstate nvarchar(255);
+
+update nashvillehousing
+set ownersplitstate = parsename(replace(owneraddress, ',','.') ,1)
+
+-- Change Y and N to Yes and No in "Sold as Vacant" field
+
+select distinct soldAsvacant, count(soldasvacant)
+from sql_portfolio.dbo.nashvillehousing
+group by soldasvacant
+order by 2
+
+
+select soldasvacant
+, case when soldasvacant = 'Y' Then "YES" 
+		when soldasvacant = 'Y' then "NO"
+		else soldasvacant 
+		end 
+from sql_portfolio.dbo.nashvillehousing
+
+update nashvillehousing
+set soldasvacant = case when soldasvacant = 'Y' Then "YES" 
+		when soldasvacant = 'Y' then "NO"
+		else soldasvacant 
+		end 
+
+
+
+--Remove Duplicates
+
+select *
+	ROW_NUMBER() OVER (
+		PARTITION BY parcelID, 
+					 propertyaddress,
+					 saleprice,
+					 saledate,
+					 legalreference
+					 ORDER BY 
+						uniqueID
+						) row_num
+
+from sql_portfolio.dbo.nashvillehousingdata
+ORDER BY parcelID
+
+
+WITH RowNumCTE as (
+select *
+	ROW_NUMBER() OVER (
+		PARTITION BY parcelID, 
+					 propertyaddress,
+					 saleprice,
+					 saledate,
+					 legalreference
+					 ORDER BY 
+						uniqueID
+						) row_num
+
+from sql_portfolio.dbo.nashvillehousingdata
+)
+
+select *
+from RowNumCTE
+where row_num > 1
+order by propertyaddress
+
+
+Delete
+from RowNumCTE
+where row_num > 1
+
+
+
+--Delete Unused Columns
+
+select *
+from sql_portfolio.dbo.NashvilleHousingdata
+
+ALTER TABLE sql_portfolio.dbo.NashvilleHousingdata
+DROP COLUMN OwnerAddress, Taxdistrict, PropertyAddress, saleDate
